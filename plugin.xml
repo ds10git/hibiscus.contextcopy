@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<plugin xmlns="http://www.willuhn.de/schema/jameica-plugin"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.willuhn.de/schema/jameica-plugin http://www.willuhn.de/schema/jameica-plugin-1.2.xsd"
+        name="hibiscus.contextcopy" version="0.1.0" class="hibiscus.contextcopy.Plugin">
+
+  <description>Hibiscus - Kopieren im Kontextmenü.</description>
+  <url>https://hibiscus.tvbrowser.org/download/hibiscus.contextcopy.zip</url>
+  <homepage>https://github.com/ds10git/hibiscus.contextcopy</homepage>
+  <license>GPL v2</license>
+
+  <requires jameica="2.6.0+">
+    <import plugin="hibiscus" version="2.10.14+" required="true"/>
+  </requires>
+
+  <classfinder>
+    <include>hibiscus\.contextcopy\.jar</include>
+    <include>.*\.class</include>
+  </classfinder>
+  
+  <extensions>
+    <!-- Hibiscus-Extensions -->
+    <extension class="hibiscus.contextcopy.ContextMenuUmsatz" extends="de.willuhn.jameica.hbci.gui.menus.UmsatzList" requires="hibiscus"/>
+    <extension class="hibiscus.contextcopy.ContextMenuKonto" extends="de.willuhn.jameica.hbci.gui.menus.KontoList" requires="hibiscus"/>
+  </extensions>
+</plugin>
