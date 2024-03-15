@@ -57,19 +57,37 @@ public class ContextMenuKonto implements Extension {
       StringBuilder b = new StringBuilder(i18n.tr("Kontoinhaber: "));
         
       b.append(k.getName()).append(System.lineSeparator());
-      b.append("IBAN: ").append(k.getIban().replaceAll("\\s+", "")).append(System.lineSeparator());
+      b.append("IBAN: ").append(ContextMenuUmsatz.cleanSpaces(k.getIban())).append(System.lineSeparator());
       b.append("BIC: ").append(k.getBic());
         
       return b.toString();
     }));
     
     copy.addItem(createContextMenu(i18n.tr("Kontoinhaber"), k -> { return k.getName(); }));
-    copy.addItem(createContextMenu(i18n.tr("IBAN"), k -> { return k.getIban().replaceAll("\\s+", ""); }));
+    copy.addItem(createContextMenu(i18n.tr("IBAN"), k -> { return ContextMenuUmsatz.cleanSpaces(k.getIban()); }));
     copy.addItem(createContextMenu(i18n.tr("BIC"), k -> { return k.getBic(); }));
     copy.addItem(createContextMenu(i18n.tr("Kontonummer"), k -> { return k.getKontonummer(); }));
     copy.addItem(createContextMenu(i18n.tr("BLZ"), k -> { return k.getBLZ(); }));
     copy.addItem(createContextMenu(i18n.tr("Kundenkennung"), k -> { return k.getKundennummer(); }));
-    copy.addItem(createContextMenu(i18n.tr("Saldo"), k -> { return String.format("%.2f", k.getSaldo()); }));
+    copy.addItem(new MyContextMenuItem(i18n.tr("Saldo"), o -> {
+      try {
+        if(o instanceof Konto) {
+          Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(String.format("%.2f", ((Konto)o).getSaldo())), null);
+        }
+        else if(o instanceof Konto[]) {
+          double sum = 0;
+          
+          for(Konto k : (Konto[])o) {
+            sum += k.getSaldo();
+          }
+          
+          Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(String.format("%.2f", sum)), null);
+        }
+      } catch (RemoteException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
+    }, true));
     
     ((ContextMenu)extendable).addMenu(copy);
   }
@@ -102,15 +120,22 @@ public class ContextMenuKonto implements Extension {
    */
   private class MyContextMenuItem extends CheckedContextMenuItem
   {
+    boolean arrays;
+    
+    public MyContextMenuItem(String text, Action a) {
+      this(text, a, false);
+    }
+    
+    
     /**
      * ct.
      * @param text
      * @param a
      */
-    public MyContextMenuItem(String text, Action a)
+    public MyContextMenuItem(String text, Action a, boolean arrays)
     {
       super(text, a);
-      
+      this.arrays = arrays;
     }
 
     /**
@@ -119,11 +144,10 @@ public class ContextMenuKonto implements Extension {
     public boolean isEnabledFor(Object o)
     {
       boolean result = false;
-      
       // Wenn wir eine ganze Liste von Buchungen haben, pruefen
       // wir nicht jede einzeln, ob sie schon in SynTAX vorhanden
       // ist. Die werden dann beim Import (weiter unten) einfach ausgesiebt.
-      if (o instanceof Konto) {
+      if (o instanceof Konto || (arrays && o instanceof Konto[])) {
         result = true;
       }
       
