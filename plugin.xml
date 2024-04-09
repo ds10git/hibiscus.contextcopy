@@ -3,7 +3,7 @@
 <plugin xmlns="http://www.willuhn.de/schema/jameica-plugin"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://www.willuhn.de/schema/jameica-plugin http://www.willuhn.de/schema/jameica-plugin-1.2.xsd"
-        name="hibiscus.contextcopy" version="0.2.0" class="hibiscus.contextcopy.Plugin">
+        name="hibiscus.contextcopy" version="0.4.0" class="hibiscus.contextcopy.Plugin">
 
   <description>Hibiscus - Kopieren im Kontextmenü.</description>
   <url>https://hibiscus.tvbrowser.org/download/hibiscus.contextcopy.zip</url>
@@ -23,5 +23,6 @@
     <!-- Hibiscus-Extensions -->
     <extension class="hibiscus.contextcopy.ContextMenuUmsatz" extends="de.willuhn.jameica.hbci.gui.menus.UmsatzList" requires="hibiscus"/>
     <extension class="hibiscus.contextcopy.ContextMenuKonto" extends="de.willuhn.jameica.hbci.gui.menus.KontoList" requires="hibiscus"/>
+    <extension class="hibiscus.contextcopy.ContextMenuEmpfaenger" extends="de.willuhn.jameica.hbci.gui.menus.EmpfaengerList" requires="hibiscus"/>
   </extensions>
 </plugin>
