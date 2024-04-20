@@ -18,10 +18,9 @@
  */
 package hibiscus.contextcopy;
 
-import java.awt.HeadlessException;
-import java.awt.Toolkit;
-import java.awt.datatransfer.StringSelection;
 import java.rmi.RemoteException;
+
+import org.apache.commons.lang.StringUtils;
 
 import de.willuhn.jameica.gui.Action;
 import de.willuhn.jameica.gui.extension.Extendable;
@@ -29,6 +28,7 @@ import de.willuhn.jameica.gui.extension.Extension;
 import de.willuhn.jameica.gui.parts.CheckedContextMenuItem;
 import de.willuhn.jameica.gui.parts.ContextMenu;
 import de.willuhn.jameica.gui.util.SWTUtil;
+import de.willuhn.jameica.hbci.gui.action.CopyClipboard;
 import de.willuhn.jameica.hbci.rmi.Konto;
 import de.willuhn.jameica.system.Application;
 import de.willuhn.logging.Logger;
@@ -51,59 +51,59 @@ public class ContextMenuKonto implements Extension {
     }
     
     ContextMenu copy = new ContextMenu();
-    copy.setText(i18n.tr("Kopieren"));
+    copy.setText(i18n.tr("Kopieren in Zwischenablage"));
     copy.setImage(SWTUtil.getImage("edit-copy.png"));
-    copy.addItem(createContextMenu(i18n.tr("Stammdaten kopieren"), k -> {
+    copy.addItem(createContextMenu(Type.STAMMDATEN, i18n.tr("Stammdaten kopieren"), k -> {
       StringBuilder b = new StringBuilder(i18n.tr("Kontoinhaber: "));
         
       b.append(k.getName()).append(System.lineSeparator());
-      b.append("IBAN: ").append(ContextMenuUmsatz.cleanSpaces(k.getIban())).append(System.lineSeparator());
+      b.append("IBAN: ").append(StringUtils.deleteWhitespace(k.getIban())).append(System.lineSeparator());
       b.append("BIC: ").append(k.getBic());
         
       return b.toString();
     }));
     
-    copy.addItem(createContextMenu(i18n.tr("Kontoinhaber"), k -> { return k.getName(); }));
-    copy.addItem(createContextMenu(i18n.tr("IBAN"), k -> { return ContextMenuUmsatz.cleanSpaces(k.getIban()); }));
-    copy.addItem(createContextMenu(i18n.tr("BIC"), k -> { return k.getBic(); }));
-    copy.addItem(createContextMenu(i18n.tr("Kontonummer"), k -> { return k.getKontonummer(); }));
-    copy.addItem(createContextMenu(i18n.tr("BLZ"), k -> { return k.getBLZ(); }));
-    copy.addItem(createContextMenu(i18n.tr("Kundenkennung"), k -> { return k.getKundennummer(); }));
-    copy.addItem(new MyContextMenuItem(i18n.tr("Saldo"), o -> {
-      try {
-        if(o instanceof Konto) {
-          Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(String.format("%.2f", ((Konto)o).getSaldo())), null);
-        }
-        else if(o instanceof Konto[]) {
-          double sum = 0;
-          
-          for(Konto k : (Konto[])o) {
-            sum += k.getSaldo();
+    copy.addItem(createContextMenu(Type.INHABER, i18n.tr("Kontoinhaber"), k -> { return k.getName(); }));
+    copy.addItem(createContextMenu(Type.IBAN, i18n.tr("IBAN"), k -> { return StringUtils.deleteWhitespace(k.getIban()); }));
+    copy.addItem(createContextMenu(Type.BIC, i18n.tr("BIC"), k -> { return k.getBic(); }));
+    copy.addItem(createContextMenu(Type.KONTONUMMER, i18n.tr("Kontonummer"), k -> { return k.getKontonummer(); }));
+    copy.addItem(createContextMenu(Type.BLZ, i18n.tr("BLZ"), k -> { return k.getBLZ(); }));
+    copy.addItem(createContextMenu(Type.KENNUNG, i18n.tr("Kundenkennung"), k -> { return k.getKundennummer(); }));
+    copy.addItem(createContextMenu(Type.NOTIZ, i18n.tr("Notiz"), k -> { return k.getKommentar(); }));
+    copy.addItem(new MyContextMenuItem(Type.SALDO, i18n.tr("Saldo"), new CopyClipboard() {
+      @Override
+      public void handleAction(Object o) throws ApplicationException {
+        try {
+          if(o instanceof Konto) {
+            super.handleAction(String.format("%.2f", ((Konto)o).getSaldo()));
           }
-          
-          Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(String.format("%.2f", sum)), null);
+          else if(o instanceof Konto[]) {
+            double sum = 0;
+            
+            for(Konto k : (Konto[])o) {
+              sum += k.getSaldo();
+            }
+            super.handleAction(String.format("%.2f", sum));
+          }
+        } catch (RemoteException e) {
+          // TODO Auto-generated catch block
+          e.printStackTrace();
         }
-      } catch (RemoteException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
       }
     }, true));
     
     ((ContextMenu)extendable).addMenu(copy);
   }
   
-  private MyContextMenuItem createContextMenu(String text, KontoHandler handler) {
-    MyContextMenuItem menu = new MyContextMenuItem(text, new Action() {
+  private MyContextMenuItem createContextMenu(int type, String text, KontoHandler handler) {
+    MyContextMenuItem menu = new MyContextMenuItem(type, text, new CopyClipboard() {
       @Override
       public void handleAction(Object context) throws ApplicationException {
         try {
-          Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(handler.handleKonto((Konto)context)), null);
-        } catch (HeadlessException e) {
+          super.handleAction(handler.handleKonto((Konto)context));
+        } catch (RemoteException e1) {
           // TODO Auto-generated catch block
-          e.printStackTrace();
-        } catch (RemoteException e) {
-          // TODO Auto-generated catch block
-          e.printStackTrace();
+          e1.printStackTrace();
         }
       }
     });
@@ -120,10 +120,11 @@ public class ContextMenuKonto implements Extension {
    */
   private class MyContextMenuItem extends CheckedContextMenuItem
   {
-    boolean arrays;
+    private boolean arrays;
+    private int type;
     
-    public MyContextMenuItem(String text, Action a) {
-      this(text, a, false);
+    public MyContextMenuItem(int type, String text, Action a) {
+      this(type, text, a, false);
     }
     
     
@@ -132,10 +133,11 @@ public class ContextMenuKonto implements Extension {
      * @param text
      * @param a
      */
-    public MyContextMenuItem(String text, Action a, boolean arrays)
+    public MyContextMenuItem(int type, String text, Action a, boolean arrays)
     {
       super(text, a);
       this.arrays = arrays;
+      this.type = type;
     }
 
     /**
@@ -147,7 +149,27 @@ public class ContextMenuKonto implements Extension {
       // Wenn wir eine ganze Liste von Buchungen haben, pruefen
       // wir nicht jede einzeln, ob sie schon in SynTAX vorhanden
       // ist. Die werden dann beim Import (weiter unten) einfach ausgesiebt.
-      if (o instanceof Konto || (arrays && o instanceof Konto[])) {
+      if (o instanceof Konto) {
+        Konto k = (Konto)o;
+        
+        try {
+          switch(type) {
+            case Type.STAMMDATEN: result = StringUtils.isNotBlank(k.getName()) || StringUtils.isNotBlank(k.getIban()) || StringUtils.isNotBlank(k.getBic());break;
+            case Type.INHABER: result = StringUtils.isNotBlank(k.getName());break;
+            case Type.IBAN: result = StringUtils.isNotBlank(k.getIban());break;
+            case Type.BIC: result = StringUtils.isNotBlank(k.getBic());break;
+            case Type.KONTONUMMER: result = StringUtils.isNotBlank(k.getKontonummer());break;
+            case Type.BLZ: result = StringUtils.isNotBlank(k.getBLZ());break;
+            case Type.KENNUNG: result = StringUtils.isNotBlank(k.getKundennummer());break;
+            case Type.NOTIZ: result = StringUtils.isNotBlank(k.getKommentar());break;
+            case Type.SALDO: result = true;break;
+          }
+        } catch (RemoteException e) {
+          // TODO Auto-generated catch block
+          e.printStackTrace();
+        }
+      }
+      else if(arrays && o instanceof Konto[]) {
         result = true;
       }
       

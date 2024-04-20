@@ -13,4 +13,4 @@ Nach einem Neustart von Jameica steht das Plugin zur Verfügung.
 
 ## Anwendung
 
-Mit einem Rechtsklick auf einen Umsatz oder Konto das Kontextmenü öffnen. Der Eintrag _Kopieren_ enthält die verfügbaren Kopieroptionen.
+Mit einem Rechtsklick auf einen Umsatz oder Konto das Kontextmenü öffnen. Der Eintrag _Kopieren in Zwischenablage_ enthält die verfügbaren Kopieroptionen.

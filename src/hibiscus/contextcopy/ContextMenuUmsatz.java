@@ -19,10 +19,10 @@
 package hibiscus.contextcopy;
 
 import java.awt.HeadlessException;
-import java.awt.Toolkit;
-import java.awt.datatransfer.StringSelection;
 import java.rmi.RemoteException;
 import java.text.DateFormat;
+
+import org.apache.commons.lang.StringUtils;
 
 import de.willuhn.jameica.gui.Action;
 import de.willuhn.jameica.gui.extension.Extendable;
@@ -31,6 +31,7 @@ import de.willuhn.jameica.gui.parts.CheckedContextMenuItem;
 import de.willuhn.jameica.gui.parts.ContextMenu;
 import de.willuhn.jameica.gui.parts.ContextMenuItem;
 import de.willuhn.jameica.gui.util.SWTUtil;
+import de.willuhn.jameica.hbci.gui.action.CopyClipboard;
 import de.willuhn.jameica.hbci.rmi.Umsatz;
 import de.willuhn.jameica.system.Application;
 import de.willuhn.logging.Logger;
@@ -53,7 +54,7 @@ public class ContextMenuUmsatz implements Extension {
       return;
     }
     ContextMenu copy = new ContextMenu();
-    copy.setText(i18n.tr("Kopieren"));
+    copy.setText(i18n.tr("Kopieren in Zwischenablage"));
     copy.setImage(SWTUtil.getImage("edit-copy.png"));
     
     ContextMenu menu = (ContextMenu) extendable;
@@ -68,33 +69,37 @@ public class ContextMenuUmsatz implements Extension {
     
     copy.addMenu(konto);
     copy.addMenu(gkonto);
-    copy.addItem(new MyContextMenuItem(i18n.tr("Betrag"), o -> {
-      try {
-        double sum = 0;
-        
-        if(o instanceof Umsatz) {
-          sum = ((Umsatz)o).getBetrag();
-        }
-        else if(o instanceof Umsatz[]) {
-          for(Umsatz u : ((Umsatz[])o)) {
-            sum += u.getBetrag();
+    copy.addItem(new MyContextMenuItem(Type.BETRAG, i18n.tr("Betrag"), new CopyClipboard() {
+      @Override
+      public void handleAction(Object o) throws ApplicationException {
+        try {
+          double sum = 0;
+          
+          if(o instanceof Umsatz) {
+            sum = ((Umsatz)o).getBetrag();
           }
+          else if(o instanceof Umsatz[]) {
+            for(Umsatz u : ((Umsatz[])o)) {
+              sum += u.getBetrag();
+            }
+          }
+          
+          super.handleAction(String.format("%.2f", sum));
+        } catch (HeadlessException | RemoteException e) {
+          // TODO Auto-generated catch block
+          e.printStackTrace();
         }
-        
-        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(String.format("%.2f", sum)), null);
-      } catch (HeadlessException | RemoteException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
       }
+      
     }, true));
-    copy.addItem(createContextMenu(i18n.tr("Datum"), u -> { return DATE.format(u.getDatum()); }));
-    copy.addItem(createContextMenu(i18n.tr("Wertstellung"), u -> { return DATE.format(u.getValuta()); }));
-    copy.addItem(createContextMenu(i18n.tr("Neuer Saldo"), u -> { return String.format("%.2f", u.getSaldo()); }));
-    copy.addItem(createContextMenu(i18n.tr("Notiz"), u -> { return u.getKommentar(); }));
-    copy.addItem(createContextMenu(i18n.tr("Verwendungszweck"), u -> {
+    copy.addItem(createContextMenu(Type.DATUM, i18n.tr("Datum"), u -> { return DATE.format(u.getDatum()); }));
+    copy.addItem(createContextMenu(Type.WERTSTELLUNG, i18n.tr("Wertstellung"), u -> { return DATE.format(u.getValuta()); }));
+    copy.addItem(createContextMenu(Type.SALDO, i18n.tr("Neuer Saldo"), u -> { return String.format("%.2f", u.getSaldo()); }));
+    copy.addItem(createContextMenu(Type.NOTIZ, i18n.tr("Notiz"), u -> { return u.getKommentar(); }));
+    copy.addItem(createContextMenu(Type.ZWECK, i18n.tr("Verwendungszweck"), u -> {
       StringBuilder s = new StringBuilder(u.getZweck());
       
-      if(u.getZweck2() != null && !u.getZweck2().isBlank()) {
+      if(StringUtils.isNotBlank(u.getZweck2())) {
         s.append(" ").append(u.getZweck2());
       }
       
@@ -109,49 +114,41 @@ public class ContextMenuUmsatz implements Extension {
       return s.toString(); 
     }));
     
-    konto.addItem(createContextMenu(i18n.tr("Stammdaten kopieren"), u -> {
+    konto.addItem(createContextMenu(Type.STAMMDATEN, i18n.tr("Stammdaten kopieren"), u -> {
       StringBuilder b = new StringBuilder(i18n.tr("Kontoinhaber: "));
         
       b.append(u.getKonto().getName()).append(System.lineSeparator());
-      b.append("IBAN: ").append(cleanSpaces(u.getKonto().getIban())).append(System.lineSeparator());
+      b.append("IBAN: ").append(StringUtils.deleteWhitespace(u.getKonto().getIban())).append(System.lineSeparator());
       b.append("BIC: ").append(u.getKonto().getBic());
         
       return b.toString();
     }));
     
-    konto.addItem(createContextMenu(i18n.tr("Kontoinhaber"), u -> { return u.getKonto().getName(); }));
-    konto.addItem(createContextMenu(i18n.tr("IBAN"), u -> { return cleanSpaces(u.getKonto().getIban()); }));
-    konto.addItem(createContextMenu(i18n.tr("BIC"), u -> { return u.getKonto().getBic(); }));
+    konto.addItem(createContextMenu(Type.INHABER, i18n.tr("Kontoinhaber"), u -> { return u.getKonto().getName(); }));
+    konto.addItem(createContextMenu(Type.IBAN, i18n.tr("IBAN"), u -> { return StringUtils.deleteWhitespace(u.getKonto().getIban()); }));
+    konto.addItem(createContextMenu(Type.BIC, i18n.tr("BIC"), u -> { return u.getKonto().getBic(); }));
     
-    gkonto.addItem(createContextMenu(i18n.tr("Stammdaten kopieren"), u -> {
+    gkonto.addItem(createContextMenu(Type.GEGENKONTO + Type.STAMMDATEN, i18n.tr("Stammdaten kopieren"), u -> {
       StringBuilder b = new StringBuilder(i18n.tr("Kontoinhaber: "));
       
       b.append(u.getGegenkontoName()).append(System.lineSeparator());
-      b.append("IBAN: ").append(cleanSpaces(u.getGegenkontoNummer())).append(System.lineSeparator());
+      b.append("IBAN: ").append(StringUtils.deleteWhitespace(u.getGegenkontoNummer())).append(System.lineSeparator());
       b.append("BIC: ").append(u.getGegenkontoBLZ());
       
       return b.toString();
     }));
     
-    gkonto.addItem(createContextMenu(i18n.tr("Kontoinhaber"), u -> { return u.getGegenkontoName(); }));
-    gkonto.addItem(createContextMenu("IBAN", u -> { return cleanSpaces(u.getGegenkontoNummer()); }));
-    gkonto.addItem(createContextMenu("BIC", u -> { return u.getGegenkontoBLZ(); }));
+    gkonto.addItem(createContextMenu(Type.GEGENKONTO + Type.INHABER, i18n.tr("Kontoinhaber"), u -> { return u.getGegenkontoName(); }));
+    gkonto.addItem(createContextMenu(Type.GEGENKONTO + Type.IBAN, "IBAN", u -> { return StringUtils.deleteWhitespace(u.getGegenkontoNummer()); }));
+    gkonto.addItem(createContextMenu(Type.GEGENKONTO + Type.BIC, "BIC", u -> { return u.getGegenkontoBLZ(); }));
   }
   
-  public static final String cleanSpaces(String value) {
-    if(value != null) {
-      value = value.replaceAll("\\s+", "");
-    }
-    
-    return value;
-  }
-  
-  private MyContextMenuItem createContextMenu(String text, UmsatzHandler handler) {
-    MyContextMenuItem menu = new MyContextMenuItem(text, new Action() {
+  private MyContextMenuItem createContextMenu(int type, String text, UmsatzHandler handler) {
+    MyContextMenuItem menu = new MyContextMenuItem(type, text, new CopyClipboard() {
       @Override
       public void handleAction(Object context) throws ApplicationException {
         try {
-          Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(handler.handleUmsatz((Umsatz)context)), null);
+          super.handleAction(handler.handleUmsatz((Umsatz)context));
         } catch (HeadlessException e) {
           // TODO Auto-generated catch block
           e.printStackTrace();
@@ -175,9 +172,11 @@ public class ContextMenuUmsatz implements Extension {
   private class MyContextMenuItem extends CheckedContextMenuItem
   {
     private boolean array;
-    public MyContextMenuItem(String text, Action a)
+    private int type;
+    
+    public MyContextMenuItem(int type, String text, Action a)
     {
-      this(text, a, false);
+      this(type, text, a, false);
     }
     
     /**
@@ -185,10 +184,11 @@ public class ContextMenuUmsatz implements Extension {
      * @param text
      * @param a
      */
-    public MyContextMenuItem(String text, Action a, boolean array)
+    public MyContextMenuItem(int type, String text, Action a, boolean array)
     {
       super(text, a);
       this.array = array;
+      this.type = type;
     }
 
     /**
@@ -201,7 +201,32 @@ public class ContextMenuUmsatz implements Extension {
       // Wenn wir eine ganze Liste von Buchungen haben, pruefen
       // wir nicht jede einzeln, ob sie schon in SynTAX vorhanden
       // ist. Die werden dann beim Import (weiter unten) einfach ausgesiebt.
-      if (o instanceof Umsatz || (array && o instanceof Umsatz[])) {
+      if (o instanceof Umsatz) {
+        Umsatz u = (Umsatz)o;
+        
+        try {
+          switch(type) {
+            case Type.STAMMDATEN: result = StringUtils.isNotBlank(u.getKonto().getName()) || StringUtils.isNotBlank(u.getKonto().getIban()) || StringUtils.isNotBlank(u.getKonto().getBic());break;
+            case Type.INHABER: result = StringUtils.isNotBlank(u.getKonto().getName());break;
+            case Type.IBAN: result = StringUtils.isNotBlank(u.getKonto().getIban());break;
+            case Type.BIC: result = StringUtils.isNotBlank(u.getKonto().getBic());break;
+            case Type.SALDO:
+            case Type.BETRAG: result = true;break;
+            case Type.DATUM: result = u.getDatum() != null;break;
+            case Type.WERTSTELLUNG: result = u.getValuta() != null;break;
+            case Type.NOTIZ: result = StringUtils.isNotBlank(u.getKommentar());break;
+            case Type.ZWECK: result = StringUtils.isNotBlank(u.getZweck());break;
+            case Type.GEGENKONTO + Type.STAMMDATEN: result = StringUtils.isNotBlank(u.getGegenkontoName()) || StringUtils.isNotBlank(u.getGegenkontoNummer()) || StringUtils.isNotBlank(u.getGegenkontoBLZ());break;
+            case Type.GEGENKONTO + Type.INHABER: result = StringUtils.isNotBlank(u.getGegenkontoName());break;
+            case Type.GEGENKONTO + Type.IBAN: result = StringUtils.isNotBlank(u.getGegenkontoNummer());break;
+            case Type.GEGENKONTO + Type.BIC: result = StringUtils.isNotBlank(u.getGegenkontoBLZ());break;            
+          }
+        } catch (RemoteException e) {
+          // TODO Auto-generated catch block
+          e.printStackTrace();
+        }
+      }
+      else if (array && o instanceof Umsatz[]) {
         result = true;
       }
       
