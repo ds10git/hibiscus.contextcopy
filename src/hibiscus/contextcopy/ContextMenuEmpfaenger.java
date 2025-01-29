@@ -121,9 +121,6 @@ public class ContextMenuEmpfaenger implements Extension {
     {
       boolean result = false;
       
-      // Wenn wir eine ganze Liste von Buchungen haben, pruefen
-      // wir nicht jede einzeln, ob sie schon in SynTAX vorhanden
-      // ist. Die werden dann beim Import (weiter unten) einfach ausgesiebt.
       if (o instanceof Address) {
         Address a = (Address)o;
         try {

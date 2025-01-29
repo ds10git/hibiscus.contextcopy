@@ -21,6 +21,7 @@ package hibiscus.contextcopy;
 import java.awt.HeadlessException;
 import java.rmi.RemoteException;
 import java.text.DateFormat;
+import java.util.List;
 
 import org.apache.commons.lang.StringUtils;
 
@@ -33,6 +34,7 @@ import de.willuhn.jameica.gui.parts.ContextMenuItem;
 import de.willuhn.jameica.gui.util.SWTUtil;
 import de.willuhn.jameica.hbci.gui.action.CopyClipboard;
 import de.willuhn.jameica.hbci.rmi.Umsatz;
+import de.willuhn.jameica.hbci.server.UmsatzTreeNode;
 import de.willuhn.jameica.system.Application;
 import de.willuhn.logging.Logger;
 import de.willuhn.util.ApplicationException;
@@ -80,6 +82,13 @@ public class ContextMenuUmsatz implements Extension {
           }
           else if(o instanceof Umsatz[]) {
             for(Umsatz u : ((Umsatz[])o)) {
+              sum += u.getBetrag();
+            }
+          }
+          else if(o instanceof UmsatzTreeNode) {
+            List<Umsatz> umsaetze = ((UmsatzTreeNode)o).getUmsaetze();
+            
+            for(Umsatz u : umsaetze) {
               sum += u.getBetrag();
             }
           }
@@ -197,11 +206,14 @@ public class ContextMenuUmsatz implements Extension {
     public boolean isEnabledFor(Object o)
     {
       boolean result = false;
-      
-      // Wenn wir eine ganze Liste von Buchungen haben, pruefen
-      // wir nicht jede einzeln, ob sie schon in SynTAX vorhanden
-      // ist. Die werden dann beim Import (weiter unten) einfach ausgesiebt.
-      if (o instanceof Umsatz) {
+      if(o instanceof UmsatzTreeNode) {
+        UmsatzTreeNode u = (UmsatzTreeNode)o;
+        
+        if(!u.getUmsaetze().isEmpty() && type == Type.BETRAG) {
+          result = true;
+        }
+      }
+      else if (o instanceof Umsatz) {
         Umsatz u = (Umsatz)o;
         
         try {

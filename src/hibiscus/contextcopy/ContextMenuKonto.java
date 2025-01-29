@@ -146,9 +146,7 @@ public class ContextMenuKonto implements Extension {
     public boolean isEnabledFor(Object o)
     {
       boolean result = false;
-      // Wenn wir eine ganze Liste von Buchungen haben, pruefen
-      // wir nicht jede einzeln, ob sie schon in SynTAX vorhanden
-      // ist. Die werden dann beim Import (weiter unten) einfach ausgesiebt.
+      
       if (o instanceof Konto) {
         Konto k = (Konto)o;
         
